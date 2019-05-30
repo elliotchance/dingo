@@ -1,0 +1,40 @@
+services:
+  SendEmail:
+    type: '*SendEmail'
+    interface: EmailSender
+    properties:
+      From: '"hi@welcome.com"'
+
+  CustomerWelcome:
+    type: '*CustomerWelcome'
+    returns: NewCustomerWelcome(@{SendEmail})
+
+  WithEnv1:
+    type: SendEmail
+    properties:
+      From: ${ShouldBeSet}
+
+  WithEnv2:
+    type: '*SendEmail'
+    properties:
+      From: '"foo-" + ${ShouldBeSet} + "-bar"'
+
+  SomeEnv:
+    type: string
+    returns: ${ShouldBeSet}
+
+  OtherPkg:
+    type: '*github.com/elliotchance/dingo/dingotest/go-sub-pkg.Person'
+
+  OtherPkg2:
+    type: '*github.com/elliotchance/dingo/dingotest/go-sub-pkg.Person'
+    interface: github.com/elliotchance/dingo/dingotest/go-sub-pkg.Greeter
+    returns: go_sub_pkg.NewPerson()
+
+  OtherPkg3:
+    type: github.com/elliotchance/dingo/dingotest/go-sub-pkg.Person
+
+  SendEmailError:
+    type: '*SendEmail'
+    returns: NewSendEmail()
+    error: panic(err)
