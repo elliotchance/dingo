@@ -192,11 +192,11 @@ func main() {
 		}
 
 		// Properties
-		for propertyName, propertyValue := range definition.Properties {
+		for _, property := range definition.SortedProperties() {
 			instantiation = append(instantiation, &ast.AssignStmt{
 				Tok: token.ASSIGN,
-				Lhs: []ast.Expr{&ast.Ident{Name: serviceTempVariable + "." + propertyName}},
-				Rhs: []ast.Expr{&ast.Ident{Name: resolveStatement(propertyValue)}},
+				Lhs: []ast.Expr{&ast.Ident{Name: serviceTempVariable + "." + property.Name}},
+				Rhs: []ast.Expr{&ast.Ident{Name: resolveStatement(property.Value)}},
 			})
 		}
 
