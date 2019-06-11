@@ -1,5 +1,7 @@
 package main
 
+import "sort"
+
 type Service struct {
 	Type       Type
 	Interface  Type
@@ -41,4 +43,22 @@ func (service *Service) Imports() map[string]string {
 	}
 
 	return imports
+}
+
+func (service *Service) SortedProperties() (sortedProperties []*Property) {
+	var propertyNames []string
+	for propertyName := range service.Properties {
+		propertyNames = append(propertyNames, propertyName)
+	}
+
+	sort.Strings(propertyNames)
+
+	for _, propertyName := range propertyNames {
+		sortedProperties = append(sortedProperties, &Property{
+			Name:  propertyName,
+			Value: service.Properties[propertyName],
+		})
+	}
+
+	return
 }
