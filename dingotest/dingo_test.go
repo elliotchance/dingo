@@ -100,3 +100,11 @@ func TestContainer_GetSomeEnv(t *testing.T) {
 	service := container.GetSomeEnv()
 	assert.Equal(t, "qux", service)
 }
+
+func TestContainer_Now(t *testing.T) {
+	container := &dingotest.Container{}
+
+	service1 := container.GetNow()
+	service2 := container.GetNow()
+	assert.NotEqual(t, service1, service2)
+}

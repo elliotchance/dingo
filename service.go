@@ -1,14 +1,24 @@
 package main
 
-import "sort"
+import (
+	"fmt"
+	"sort"
+)
+
+const (
+	ScopeNotSet    = ""
+	ScopePrototype = "prototype"
+	ScopeContainer = "container"
+)
 
 type Service struct {
-	Type       Type
+	Error      string
+	Import     []string
 	Interface  Type
 	Properties map[string]string
 	Returns    string
-	Error      string
-	Import     []string
+	Scope      string
+	Type       Type
 }
 
 func (service *Service) InterfaceOrLocalEntityType() string {
@@ -61,4 +71,21 @@ func (service *Service) SortedProperties() (sortedProperties []*Property) {
 	}
 
 	return
+}
+
+func (service *Service) ValidateScope() error {
+	switch service.Scope {
+	case ScopeNotSet, ScopePrototype, ScopeContainer:
+		return nil
+	}
+
+	return fmt.Errorf("invalid scope: %s", service.Scope)
+}
+
+func (service *Service) Validate() error {
+	if err := service.ValidateScope(); err != nil {
+		return err
+	}
+
+	return nil
 }
