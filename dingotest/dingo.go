@@ -3,6 +3,7 @@ package dingotest
 import (
 	go_sub_pkg "github.com/elliotchance/dingo/dingotest/go-sub-pkg"
 	"os"
+	time "time"
 )
 
 type Container struct {
@@ -25,6 +26,10 @@ func (container *Container) GetCustomerWelcome() *CustomerWelcome {
 		container.CustomerWelcome = service
 	}
 	return container.CustomerWelcome
+}
+func (container *Container) GetNow() time.Time {
+	service := time.Now()
+	return service
 }
 func (container *Container) GetOtherPkg() *go_sub_pkg.Person {
 	if container.OtherPkg == nil {

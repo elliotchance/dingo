@@ -94,12 +94,21 @@ func main() {
 	for _, serviceName := range serviceNames {
 		definition := all.Services[serviceName]
 
-		containerFields = append(containerFields, &ast.Field{
-			Names: []*ast.Ident{
-				{Name: serviceName},
-			},
-			Type: &ast.Ident{Name: definition.InterfaceOrLocalEntityPointerType()},
-		})
+		switch definition.Scope {
+		case ScopeNotSet, ScopeContainer:
+			containerFields = append(containerFields, &ast.Field{
+				Names: []*ast.Ident{
+					{Name: serviceName},
+				},
+				Type: &ast.Ident{
+					Name: definition.InterfaceOrLocalEntityPointerType(),
+				},
+			})
+
+		case ScopePrototype:
+			// Do not create a property for this because it has to be created
+			// every time.
+		}
 	}
 
 	file.Decls = append(file.Decls, &ast.GenDecl{
@@ -200,39 +209,52 @@ func main() {
 			})
 		}
 
-		if definition.Type.IsPointer() || definition.Interface != "" {
-			instantiation = append(instantiation, &ast.AssignStmt{
-				Tok: token.ASSIGN,
-				Lhs: []ast.Expr{&ast.Ident{Name: serviceVariable}},
-				Rhs: []ast.Expr{&ast.Ident{Name: serviceTempVariable}},
-			})
-		} else {
-			instantiation = append(instantiation, &ast.AssignStmt{
-				Tok: token.ASSIGN,
-				Lhs: []ast.Expr{&ast.Ident{Name: serviceVariable}},
-				Rhs: []ast.Expr{&ast.Ident{Name: "&" + serviceTempVariable}},
-			})
-		}
+		// Scope
+		switch definition.Scope {
+		case ScopeNotSet, ScopeContainer:
+			if definition.Type.IsPointer() || definition.Interface != "" {
+				instantiation = append(instantiation, &ast.AssignStmt{
+					Tok: token.ASSIGN,
+					Lhs: []ast.Expr{&ast.Ident{Name: serviceVariable}},
+					Rhs: []ast.Expr{&ast.Ident{Name: serviceTempVariable}},
+				})
+			} else {
+				instantiation = append(instantiation, &ast.AssignStmt{
+					Tok: token.ASSIGN,
+					Lhs: []ast.Expr{&ast.Ident{Name: serviceVariable}},
+					Rhs: []ast.Expr{&ast.Ident{Name: "&" + serviceTempVariable}},
+				})
+			}
 
-		// Singleton
-		stmts = append(stmts, &ast.IfStmt{
-			Cond: &ast.Ident{Name: serviceVariable + " == nil"},
-			Body: &ast.BlockStmt{
-				List: instantiation,
-			},
-		})
-
-		// Return
-		if definition.Type.IsPointer() || definition.Interface != "" {
-			stmts = append(stmts, &ast.ReturnStmt{
-				Results: []ast.Expr{
-					&ast.Ident{Name: serviceVariable},
+			stmts = append(stmts, &ast.IfStmt{
+				Cond: &ast.Ident{Name: serviceVariable + " == nil"},
+				Body: &ast.BlockStmt{
+					List: instantiation,
 				},
 			})
-		} else {
+
+			// Returns
+			if definition.Type.IsPointer() || definition.Interface != "" {
+				stmts = append(stmts, &ast.ReturnStmt{
+					Results: []ast.Expr{
+						&ast.Ident{Name: serviceVariable},
+					},
+				})
+			} else {
+				stmts = append(stmts, &ast.ReturnStmt{
+					Results: []ast.Expr{
+						&ast.Ident{Name: "*" + serviceVariable},
+					},
+				})
+			}
+
+		case ScopePrototype:
+			stmts = append(stmts, instantiation...)
+
+			// Returns
 			stmts = append(stmts, &ast.ReturnStmt{
 				Results: []ast.Expr{
-					&ast.Ident{Name: "*" + serviceVariable},
+					&ast.Ident{Name: "service"},
 				},
 			})
 		}
@@ -253,7 +275,9 @@ func main() {
 				Results: &ast.FieldList{
 					List: []*ast.Field{
 						{
-							Type: &ast.Ident{Name: definition.InterfaceOrLocalEntityType()},
+							Type: &ast.Ident{
+								Name: definition.InterfaceOrLocalEntityType(),
+							},
 						},
 					},
 				},

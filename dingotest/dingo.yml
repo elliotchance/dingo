@@ -23,6 +23,11 @@ services:
     type: string
     returns: ${ShouldBeSet}
 
+  Now:
+    type: time.Time
+    returns: time.Now()
+    scope: prototype
+
   OtherPkg:
     type: '*github.com/elliotchance/dingo/dingotest/go-sub-pkg.Person'
 
