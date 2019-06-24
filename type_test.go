@@ -6,6 +6,7 @@ import (
 )
 
 var typeTests = map[Type]struct {
+	String                 string
 	IsPointer              bool
 	PackageName            string
 	LocalPackageName       string
@@ -15,8 +16,10 @@ var typeTests = map[Type]struct {
 	CreateLocalEntityType  string
 	LocalEntityPointerType string
 	UnversionedPackageName string
+	IsFunction             bool
 }{
 	"Person": {
+		String:                 "Person",
 		IsPointer:              false,
 		PackageName:            "",
 		LocalPackageName:       "",
@@ -26,8 +29,10 @@ var typeTests = map[Type]struct {
 		CreateLocalEntityType:  "Person",
 		LocalEntityPointerType: "*Person",
 		UnversionedPackageName: "",
+		IsFunction:             false,
 	},
 	"*Person": {
+		String:                 "*Person",
 		IsPointer:              true,
 		PackageName:            "",
 		LocalPackageName:       "",
@@ -37,8 +42,10 @@ var typeTests = map[Type]struct {
 		CreateLocalEntityType:  "&Person",
 		LocalEntityPointerType: "*Person",
 		UnversionedPackageName: "",
+		IsFunction:             false,
 	},
 	"github.com/elliotchance/dingo/dingotest/go-sub-pkg.Person": {
+		String:                 "github.com/elliotchance/dingo/dingotest/go-sub-pkg.Person",
 		IsPointer:              false,
 		PackageName:            "github.com/elliotchance/dingo/dingotest/go-sub-pkg",
 		LocalPackageName:       "go_sub_pkg",
@@ -48,8 +55,10 @@ var typeTests = map[Type]struct {
 		CreateLocalEntityType:  "go_sub_pkg.Person",
 		LocalEntityPointerType: "*go_sub_pkg.Person",
 		UnversionedPackageName: "github.com/elliotchance/dingo/dingotest/go-sub-pkg",
+		IsFunction:             false,
 	},
 	"*github.com/elliotchance/dingo/dingotest/go-sub-pkg.Person": {
+		String:                 "*github.com/elliotchance/dingo/dingotest/go-sub-pkg.Person",
 		IsPointer:              true,
 		PackageName:            "github.com/elliotchance/dingo/dingotest/go-sub-pkg",
 		LocalPackageName:       "go_sub_pkg",
@@ -59,8 +68,10 @@ var typeTests = map[Type]struct {
 		CreateLocalEntityType:  "&go_sub_pkg.Person",
 		LocalEntityPointerType: "*go_sub_pkg.Person",
 		UnversionedPackageName: "github.com/elliotchance/dingo/dingotest/go-sub-pkg",
+		IsFunction:             false,
 	},
 	"github.com/kounta/luigi/v7.Logger": {
+		String:                 "github.com/kounta/luigi/v7.Logger",
 		IsPointer:              false,
 		PackageName:            "github.com/kounta/luigi/v7",
 		LocalPackageName:       "luigi",
@@ -70,8 +81,10 @@ var typeTests = map[Type]struct {
 		CreateLocalEntityType:  "luigi.Logger",
 		LocalEntityPointerType: "*luigi.Logger",
 		UnversionedPackageName: "github.com/kounta/luigi",
+		IsFunction:             false,
 	},
 	"*github.com/kounta/luigi/v7.SimpleLogger": {
+		String:                 "*github.com/kounta/luigi/v7.SimpleLogger",
 		IsPointer:              true,
 		PackageName:            "github.com/kounta/luigi/v7",
 		LocalPackageName:       "luigi",
@@ -81,13 +94,53 @@ var typeTests = map[Type]struct {
 		CreateLocalEntityType:  "&luigi.SimpleLogger",
 		LocalEntityPointerType: "*luigi.SimpleLogger",
 		UnversionedPackageName: "github.com/kounta/luigi",
+		IsFunction:             false,
+	},
+	"func()": {
+		String:                 "func ()",
+		IsPointer:              true,
+		PackageName:            "",
+		LocalPackageName:       "",
+		EntityName:             "func ()",
+		LocalEntityName:        "func ()",
+		LocalEntityType:        "func ()",
+		CreateLocalEntityType:  "func ()",
+		LocalEntityPointerType: "func ()",
+		UnversionedPackageName: "",
+		IsFunction:             true,
+	},
+	"func  (a, b int) (*foo.Bar)": {
+		String:                 "func (a, b int) *foo.Bar",
+		IsPointer:              true,
+		PackageName:            "",
+		LocalPackageName:       "",
+		EntityName:             "func (a, b int) *foo.Bar",
+		LocalEntityName:        "func (a, b int) *foo.Bar",
+		LocalEntityType:        "func (a, b int) *foo.Bar",
+		CreateLocalEntityType:  "func (a, b int) *foo.Bar",
+		LocalEntityPointerType: "func (a, b int) *foo.Bar",
+		UnversionedPackageName: "",
+		IsFunction:             true,
+	},
+	"func(s string) (float64, bool)": {
+		String:                 "func (s string) (float64, bool)",
+		IsPointer:              true,
+		PackageName:            "",
+		LocalPackageName:       "",
+		EntityName:             "func (s string) (float64, bool)",
+		LocalEntityName:        "func (s string) (float64, bool)",
+		LocalEntityType:        "func (s string) (float64, bool)",
+		CreateLocalEntityType:  "func (s string) (float64, bool)",
+		LocalEntityPointerType: "func (s string) (float64, bool)",
+		UnversionedPackageName: "",
+		IsFunction:             true,
 	},
 }
 
 func TestType_String(t *testing.T) {
 	for ty := range typeTests {
 		t.Run(string(ty), func(t *testing.T) {
-			assert.Equal(t, string(ty), ty.String())
+			assert.Equal(t, ty.String(), ty.String())
 		})
 	}
 }
@@ -160,6 +213,14 @@ func TestType_UnversionedPackageName(t *testing.T) {
 	for ty, test := range typeTests {
 		t.Run(string(ty), func(t *testing.T) {
 			assert.Equal(t, test.UnversionedPackageName, ty.UnversionedPackageName())
+		})
+	}
+}
+
+func TestType_IsFunction(t *testing.T) {
+	for ty, test := range typeTests {
+		t.Run(string(ty), func(t *testing.T) {
+			assert.Equal(t, test.IsFunction, ty.IsFunction())
 		})
 	}
 }

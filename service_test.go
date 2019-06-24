@@ -6,13 +6,13 @@ import (
 	"testing"
 )
 
-var serviceValidationTests = map[string]struct{
+var serviceValidationTests = map[string]struct {
 	service *Service
-	err error
+	err     error
 }{
 	"empty": {
 		service: &Service{},
-		err: nil,
+		err:     nil,
 	},
 	"scope_prototype": {
 		service: &Service{

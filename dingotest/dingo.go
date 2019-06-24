@@ -7,19 +7,33 @@ import (
 )
 
 type Container struct {
-	CustomerWelcome	*CustomerWelcome
-	OtherPkg	*go_sub_pkg.Person
-	OtherPkg2	go_sub_pkg.Greeter
-	OtherPkg3	*go_sub_pkg.Person
-	SendEmail	EmailSender
-	SendEmailError	*SendEmail
-	SomeEnv		*string
-	WithEnv1	*SendEmail
-	WithEnv2	*SendEmail
+	AFunc           func(int, int) (bool, bool)
+	CustomerWelcome *CustomerWelcome
+	OtherPkg        *go_sub_pkg.Person
+	OtherPkg2       go_sub_pkg.Greeter
+	OtherPkg3       *go_sub_pkg.Person
+	SendEmail       EmailSender
+	SendEmailError  *SendEmail
+	SomeEnv         *string
+	WithEnv1        *SendEmail
+	WithEnv2        *SendEmail
 }
 
 var DefaultContainer = &Container{}
 
+func (container *Container) GetAFunc() func(int, int) (bool, bool) {
+	if container.AFunc == nil {
+		service := func(a, b int) (c, d bool) {
+			c = (a + b) != 0
+			d = container.GetSomeEnv() != ""
+
+			return
+		}
+
+		container.AFunc = service
+	}
+	return container.AFunc
+}
 func (container *Container) GetCustomerWelcome() *CustomerWelcome {
 	if container.CustomerWelcome == nil {
 		service := NewCustomerWelcome(container.GetSendEmail())
