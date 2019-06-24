@@ -43,3 +43,13 @@ services:
     type: '*SendEmail'
     returns: NewSendEmail()
     error: panic(err)
+
+  AFunc:
+    type: func (int, int) (bool, bool)
+    returns: |
+      func (a, b int) (c, d bool) {
+        c = (a + b) != 0
+        d = @{SomeEnv} != ""
+
+        return
+      }

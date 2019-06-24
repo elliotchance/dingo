@@ -120,8 +120,11 @@ properties:
 
 ### returns
 
-The expression used to instantiate the service. You can provide any Go code
-here, including referencing other services and environment variables.
+The expression used to instantiate the service. You can provide any Go
+expression here, including referencing other services and environment variables.
+
+The `returns` can also return a function, since it is an expression. See `type`
+for an example.
 
 ### scope
 
@@ -142,8 +145,19 @@ name that includes the package name if the type does not belong to this package.
 
 Example
 
-```:
+```yml
 type: '*github.com/go-redis/redis.Options'
+```
+
+The `type` may also be a function. Functions can refer to other services in the
+same embedded way:
+
+```yml
+type: func () bool
+returns: |
+  func () bool {
+    return @{Something}.IsReady()
+  }
 ```
 
 ## Using Services
