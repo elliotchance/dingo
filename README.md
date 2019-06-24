@@ -14,6 +14,9 @@ Easy, fast and type-safe dependency injection for Go.
     + [type](#type)
   * [Using Services](#using-services)
   * [Unit Testing](#unit-testing)
+  * [Practical Examples](#practical-examples)
+    + [Mocking the Clock](#mocking-the-clock)
+    + [Mocking Runtime Dependencies](#mocking-runtime-dependencies)
 
 ## Installation
 
@@ -180,7 +183,7 @@ func main() {
 should create a new container:
 
 ```go
-container := &Container{}
+container := NewContainer()
 ```
 
 Unit tests can make any modifications to the new container, including overriding
@@ -192,12 +195,155 @@ func TestCustomerWelcome_Welcome(t *testing.T) {
 	emailer.On("Send",
 		"bob@smith.com", "Welcome", "Hi, Bob!").Return(nil)
     
-	container := &Container{}
+	container := NewContainer()
 	container.SendEmail = emailer
     
 	welcomer := container.GetCustomerWelcome()
 	err := welcomer.Welcome("Bob", "bob@smith.com")
 	assert.NoError(t, err)
 	emailer.AssertExpectations(t)
+}
+```
+
+## Practical Examples
+
+### Mocking the Clock
+
+Code that relies on time needs to be deterministic to be testable. Extracting
+the clock as a service allows the whole time environment to be predictable for
+all services. It also has the added benefit that `Sleep()` is free when running
+unit tests.
+
+Here is a service, `WhatsTheTime`, that needs to use the current time:
+
+```yml
+services:
+  Clock:
+    interface: github.com/jonboulle/clockwork.Clock
+    returns: clockwork.NewRealClock()
+
+  WhatsTheTime:
+    type: '*WhatsTheTime'
+    properties:
+      clock: '@{Clock}'
+```
+
+`WhatsTheTime` can now use this clock the same way you would use the `time`
+package:
+
+```go
+import (
+	"github.com/jonboulle/clockwork"
+	"time"
+)
+
+type WhatsTheTime struct {
+	clock clockwork.Clock
+}
+
+func (t *WhatsTheTime) InRFC1123() string {
+	return t.clock.Now().Format(time.RFC1123)
+}
+```
+
+The unit test can substitute a fake clock for all services:
+
+```go
+func TestWhatsTheTime_InRFC1123(t *testing.T) {
+	container := NewContainer()
+	container.Clock = clockwork.NewFakeClock()
+
+	actual := container.GetWhatsTheTime().InRFC1123()
+	assert.Equal(t, "Wed, 04 Apr 1984 00:00:00 UTC", actual)
+}
+```
+
+### Mocking Runtime Dependencies
+
+One situation that is tricky to write tests for is when you have the
+instantiation inside a service because it needs some runtime state.
+
+Let's say you have a HTTP client that signs a request before sending it. The
+signer can only be instantiated with the request, so we can't use traditional
+injection:
+
+```go
+type HTTPSignerClient struct{}
+
+func (c *HTTPSignerClient) Do(req *http.Request) (*http.Response, error) {
+	signer := NewSigner(req)
+	req.Headers.Set("Authorization", signer.Auth())
+
+	return http.DefaultClient.Do(req)
+}
+```
+
+The `Signer` is not deterministic because it relies on the time:
+
+```go
+type Signer struct {
+	req *http.Request
+}
+
+func NewSigner(req *http.Request) *Signer {
+	return &Signer{req: req}
+}
+
+// Produces something like "Mon Jan 2 15:04:05 2006 POST"
+func (signer *Signer) Auth() string {
+	return time.Now().Format(time.ANSIC) + " " + signer.req.Method
+}
+```
+
+Unlike mocking the clock (as in the previous tutorial) this time we need to keep
+the logic of the signer, but verify the URL path sent to the signer. Of course,
+we could manipulate or entirely replace the signer as well.
+
+Services can have `arguments` which turns them into factories. For example:
+
+```yml
+services:
+  Signer:
+    type: '*Signer'
+    scope: prototype        # Create a new Signer each time
+    arguments:              # Define the dependencies at runtime.
+      req: '*http.Request'
+    returns: NewSigner(req) # Setup code can reference the runtime dependencies.
+
+  HTTPSignerClient:
+  	type: '*HTTPSignerClient'
+  	properties:
+  	  CreateSigner: '@{Signer}' # Looks like a regular service, right?
+```
+
+Dingo has transformed the service into a factory, using a function:
+
+```go
+type HTTPSignerClient struct {
+	CreateSigner func(req *http.Request) *Signer
+}
+
+func (c *HTTPSignerClient) Do(req *http.Request) (*http.Response, error) {
+	signer := c.CreateSigner(req)
+	req.Headers.Set("Authorization", signer.Auth())
+
+	return http.DefaultClient.Do(req)
+}
+```
+
+Under test we can control this factory like any other service:
+
+```go
+func TestHTTPSignerClient_Do(t *testing.T) {
+	container := NewContainer()
+	container.Signer = func(req *http.Request) *Signer {
+		assert.Equals(t, req.URL.Path, "/foo")
+
+		return NewSigner(req)
+	}
+
+	client := container.GetHTTPSignerClient()
+	_, err := client.Do(http.NewRequest("GET", "/foo", nil))
+	assert.NoError(t, err)
 }
 ```

@@ -28,6 +28,19 @@ services:
     returns: time.Now()
     scope: prototype
 
+  ParsedTime:
+    type: time.Time
+    scope: prototype
+    arguments:
+      value: string
+    returns: time.Parse(time.RFC822, value)
+    error: return time.Now()
+
+  DependsOnTime:
+    type: time.Time
+    scope: prototype
+    returns: '@{ParsedTime("13 Jan 06 15:04 MST")}'
+
   OtherPkg:
     type: '*github.com/elliotchance/dingo/dingotest/go-sub-pkg.Person'
 
@@ -53,3 +66,26 @@ services:
 
         return
       }
+
+  Clock:
+    interface: github.com/jonboulle/clockwork.Clock
+    returns: clockwork.NewRealClock()
+
+  WhatsTheTime:
+    type: '*WhatsTheTime'
+    properties:
+      clock: '@{Clock}'
+
+  Signer:
+    type: '*Signer'
+    scope: prototype        # Create a new Signer each time
+    arguments:              # Define the dependencies at runtime.
+      req: '*http.Request'
+    import:
+      - net/http
+    returns: NewSigner(req) # Setup code can reference the runtime dependencies.
+
+  HTTPSignerClient:
+    type: '*HTTPSignerClient'
+    properties:
+      CreateSigner: '@{Signer}'
