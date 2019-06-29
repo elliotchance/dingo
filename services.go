@@ -61,22 +61,6 @@ func (services Services) astContainerStruct() *ast.GenDecl {
 	}
 }
 
-func (services Services) astNewContainerFunc() *ast.FuncDecl {
-	fields := make(map[string]ast.Expr)
-
-	for _, serviceName := range services.ServicesWithScope(ScopePrototype).ServiceNames() {
-		service := services[serviceName]
-		fields[serviceName] = &ast.FuncLit{
-			Type: service.astFunctionPrototype(services),
-			Body: service.astFunctionBody(services, "", serviceName),
-		}
-	}
-
-	return newFunc("NewContainer", nil, []string{"*Container"}, newBlock(
-		newReturn(newCompositeLit("&Container", fields)),
-	))
-}
-
 func (services Services) astDefaultContainer() *ast.GenDecl {
 	return &ast.GenDecl{
 		Tok: token.VAR,

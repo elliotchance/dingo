@@ -2,6 +2,7 @@ package main
 
 import (
 	"go/ast"
+	"sort"
 )
 
 func newIdent(name string) *ast.Ident {
@@ -60,6 +61,8 @@ func newCompositeLit(ty string, m map[string]ast.Expr) *ast.CompositeLit {
 	for k := range m {
 		keys = append(keys, k)
 	}
+
+	sort.Strings(keys)
 
 	for _, k := range keys {
 		exprs = append(exprs, &ast.KeyValueExpr{
