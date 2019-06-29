@@ -178,7 +178,7 @@ func (service *Service) astFunctionPrototype(services Services) *ast.FuncType {
 	}
 }
 
-func (service *Service) astFunctionBody(services Services, name, serviceName string) *ast.BlockStmt {
+func (service *Service) astFunctionBody(file *File, services Services, name, serviceName string) *ast.BlockStmt {
 	if name != "" && service.Scope == ScopePrototype {
 		var arguments []string
 		for _, dep := range service.Returns.Dependencies() {
@@ -220,7 +220,7 @@ func (service *Service) astFunctionBody(services Services, name, serviceName str
 				Tok: token.DEFINE,
 				Lhs: lhs,
 				Rhs: []ast.Expr{
-					newIdent(service.Returns.performSubstitutions(services, name == "")),
+					newIdent(service.Returns.performSubstitutions(file, services, name == "")),
 				},
 			},
 		}
@@ -244,7 +244,7 @@ func (service *Service) astFunctionBody(services Services, name, serviceName str
 		instantiation = append(instantiation, &ast.AssignStmt{
 			Tok: token.ASSIGN,
 			Lhs: []ast.Expr{&ast.Ident{Name: serviceTempVariable + "." + property.Name}},
-			Rhs: []ast.Expr{&ast.Ident{Name: property.Value.performSubstitutions(services, name == "")}},
+			Rhs: []ast.Expr{&ast.Ident{Name: property.Value.performSubstitutions(file, services, name == "")}},
 		})
 	}
 

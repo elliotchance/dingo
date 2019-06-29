@@ -28,13 +28,13 @@ func (e Expression) Dependencies() (deps []string) {
 	return pie.Strings(deps).Unique()
 }
 
-func (e Expression) performSubstitutions(services Services, fromArgs bool) string {
+func (e Expression) performSubstitutions(file *File, services Services, fromArgs bool) string {
 	stmt := string(e)
 
 	// Replace environment variables.
 	stmt = replaceAllStringSubmatchFunc(
 		regexp.MustCompile(`\${(.*?)}`), stmt, func(i []string) string {
-			astutil.AddImport(fset, file, "os")
+			astutil.AddImport(file.fset, file.file, "os")
 
 			return fmt.Sprintf("os.Getenv(\"%s\")", i[1])
 		})
