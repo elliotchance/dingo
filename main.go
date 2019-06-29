@@ -2,27 +2,22 @@ package main
 
 import (
 	"fmt"
+	"github.com/go-yaml/yaml"
 	"go/ast"
 	"go/parser"
 	"go/printer"
 	"go/token"
 	"golang.org/x/tools/go/ast/astutil"
-	"gopkg.in/yaml.v2"
 	"io/ioutil"
 	"log"
 	"os"
 	"path/filepath"
 	"regexp"
-	"sort"
 	"strings"
 )
 
 var fset *token.FileSet
 var file *ast.File
-
-type File struct {
-	Services map[string]Service
-}
 
 func replaceAllStringSubmatchFunc(re *regexp.Regexp, str string, repl func([]string) string) string {
 	result := ""
@@ -39,24 +34,6 @@ func replaceAllStringSubmatchFunc(re *regexp.Regexp, str string, repl func([]str
 	}
 
 	return result + str[lastIndex:]
-}
-
-func resolveStatement(stmt string) string {
-	// Replace environment variables.
-	stmt = replaceAllStringSubmatchFunc(
-		regexp.MustCompile(`\${(.*?)}`), stmt, func(i []string) string {
-			astutil.AddImport(fset, file, "os")
-
-			return fmt.Sprintf("os.Getenv(\"%s\")", i[1])
-		})
-
-	// Replace service names.
-	stmt = replaceAllStringSubmatchFunc(
-		regexp.MustCompile(`@{(.*?)}`), stmt, func(i []string) string {
-			return fmt.Sprintf("container.Get%s()", i[1])
-		})
-
-	return stmt
 }
 
 func main() {
@@ -81,65 +58,12 @@ func main() {
 		log.Fatalln("parser:", err)
 	}
 
-	// Sort services to the output file is neat and deterministic.
-	var serviceNames []string
-	for name := range all.Services {
-		serviceNames = append(serviceNames, name)
-	}
+	file.Decls = append(file.Decls,
+		all.Services.astContainerStruct(),
+		all.Services.astDefaultContainer(),
+		all.Services.astNewContainerFunc())
 
-	sort.Strings(serviceNames)
-
-	// type Container struct
-	var containerFields []*ast.Field
-	for _, serviceName := range serviceNames {
-		definition := all.Services[serviceName]
-
-		switch definition.Scope {
-		case ScopeNotSet, ScopeContainer:
-			containerFields = append(containerFields, &ast.Field{
-				Names: []*ast.Ident{
-					{Name: serviceName},
-				},
-				Type: &ast.Ident{
-					Name: definition.InterfaceOrLocalEntityPointerType(),
-				},
-			})
-
-		case ScopePrototype:
-			// Do not create a property for this because it has to be created
-			// every time.
-		}
-	}
-
-	file.Decls = append(file.Decls, &ast.GenDecl{
-		Tok: token.TYPE,
-		Specs: []ast.Spec{
-			&ast.TypeSpec{
-				Name: &ast.Ident{Name: "Container"},
-				Type: &ast.StructType{
-					Fields: &ast.FieldList{
-						List: containerFields,
-					},
-				},
-			},
-		},
-	})
-
-	file.Decls = append(file.Decls, &ast.GenDecl{
-		Tok: token.VAR,
-		Specs: []ast.Spec{
-			&ast.ValueSpec{
-				Names: []*ast.Ident{
-					{Name: "DefaultContainer"},
-				},
-				Values: []ast.Expr{
-					&ast.Ident{Name: "&Container{}"},
-				},
-			},
-		},
-	})
-
-	for _, serviceName := range serviceNames {
+	for _, serviceName := range all.Services.ServiceNames() {
 		definition := all.Services[serviceName]
 
 		// Add imports for type, interface and explicit imports.
@@ -147,144 +71,23 @@ func main() {
 			astutil.AddNamedImport(fset, file, shortName, packageName)
 		}
 
-		returnTypeParts := strings.Split(
-			regexp.MustCompile(`/v\d+\.`).ReplaceAllString(string(definition.Type), "."), "/")
-		returnType := returnTypeParts[len(returnTypeParts)-1]
-		if strings.HasPrefix(string(definition.Type), "*") && !strings.HasPrefix(returnType, "*") {
-			returnType = "*" + returnType
-		}
-
-		var stmts, instantiation []ast.Stmt
-		serviceVariable := "container." + serviceName
-		serviceTempVariable := "service"
-
-		// Instantiation
-		if definition.Returns == "" {
-			instantiation = []ast.Stmt{
-				&ast.AssignStmt{
-					Tok: token.DEFINE,
-					Lhs: []ast.Expr{&ast.Ident{Name: serviceTempVariable}},
-					Rhs: []ast.Expr{
-						&ast.CompositeLit{
-							Type: &ast.Ident{Name: definition.Type.CreateLocalEntityType()},
-						},
-					},
-				},
-			}
-		} else {
-			lhs := []ast.Expr{&ast.Ident{Name: serviceTempVariable}}
-
-			if definition.Error != "" {
-				lhs = append(lhs, &ast.Ident{Name: "err"})
-			}
-
-			instantiation = []ast.Stmt{
-				&ast.AssignStmt{
-					Tok: token.DEFINE,
-					Lhs: lhs,
-					Rhs: []ast.Expr{&ast.Ident{Name: resolveStatement(definition.Returns)}},
-				},
-			}
-
-			if definition.Error != "" {
-				instantiation = append(instantiation, &ast.IfStmt{
-					Cond: &ast.Ident{Name: "err != nil"},
-					Body: &ast.BlockStmt{
-						List: []ast.Stmt{
-							&ast.ExprStmt{
-								X: &ast.Ident{Name: definition.Error},
-							},
-						},
-					},
-				})
-			}
-		}
-
-		// Properties
-		for _, property := range definition.SortedProperties() {
-			instantiation = append(instantiation, &ast.AssignStmt{
-				Tok: token.ASSIGN,
-				Lhs: []ast.Expr{&ast.Ident{Name: serviceTempVariable + "." + property.Name}},
-				Rhs: []ast.Expr{&ast.Ident{Name: resolveStatement(property.Value)}},
-			})
-		}
-
-		// Scope
-		switch definition.Scope {
-		case ScopeNotSet, ScopeContainer:
-			if definition.Type.IsPointer() || definition.Interface != "" {
-				instantiation = append(instantiation, &ast.AssignStmt{
-					Tok: token.ASSIGN,
-					Lhs: []ast.Expr{&ast.Ident{Name: serviceVariable}},
-					Rhs: []ast.Expr{&ast.Ident{Name: serviceTempVariable}},
-				})
-			} else {
-				instantiation = append(instantiation, &ast.AssignStmt{
-					Tok: token.ASSIGN,
-					Lhs: []ast.Expr{&ast.Ident{Name: serviceVariable}},
-					Rhs: []ast.Expr{&ast.Ident{Name: "&" + serviceTempVariable}},
-				})
-			}
-
-			stmts = append(stmts, &ast.IfStmt{
-				Cond: &ast.Ident{Name: serviceVariable + " == nil"},
-				Body: &ast.BlockStmt{
-					List: instantiation,
-				},
-			})
-
-			// Returns
-			if definition.Type.IsPointer() || definition.Interface != "" {
-				stmts = append(stmts, &ast.ReturnStmt{
-					Results: []ast.Expr{
-						&ast.Ident{Name: serviceVariable},
-					},
-				})
-			} else {
-				stmts = append(stmts, &ast.ReturnStmt{
-					Results: []ast.Expr{
-						&ast.Ident{Name: "*" + serviceVariable},
-					},
-				})
-			}
-
-		case ScopePrototype:
-			stmts = append(stmts, instantiation...)
-
-			// Returns
-			stmts = append(stmts, &ast.ReturnStmt{
-				Results: []ast.Expr{
-					&ast.Ident{Name: "service"},
-				},
-			})
-		}
-
 		file.Decls = append(file.Decls, &ast.FuncDecl{
-			Name: &ast.Ident{Name: "Get" + serviceName},
+			Name: newIdent("Get" + serviceName),
 			Recv: &ast.FieldList{
 				List: []*ast.Field{
 					{
 						Names: []*ast.Ident{
-							{Name: "container"},
+							newIdent("container"),
 						},
-						Type: &ast.Ident{Name: "*Container"},
+						Type: newIdent("*Container"),
 					},
 				},
 			},
 			Type: &ast.FuncType{
-				Results: &ast.FieldList{
-					List: []*ast.Field{
-						{
-							Type: &ast.Ident{
-								Name: definition.InterfaceOrLocalEntityType(),
-							},
-						},
-					},
-				},
+				Params:  definition.astArguments(),
+				Results: newFieldList(definition.InterfaceOrLocalEntityType(all.Services, false)),
 			},
-			Body: &ast.BlockStmt{
-				List: stmts,
-			},
+			Body: definition.astFunctionBody(all.Services, serviceName, serviceName),
 		})
 	}
 
