@@ -2,11 +2,12 @@ package main
 
 import (
 	"fmt"
-	"github.com/elliotchance/pie/pie"
 	"go/ast"
-	"golang.org/x/tools/go/ast/astutil"
 	"regexp"
 	"strings"
+
+	"github.com/elliotchance/pie/pie"
+	"golang.org/x/tools/go/ast/astutil"
 )
 
 type Expression string
@@ -48,6 +49,10 @@ func (e Expression) performSubstitutions(file *File, services Services, fromArgs
 
 			if strings.Contains(i[1], "(") {
 				return fmt.Sprintf("container.Get%s", i[1])
+			}
+
+			if _, existsService := services[i[1]]; !existsService {
+				panic(fmt.Errorf("Cannot cite to %s service, please ensure you have this one accessible", i[1]))
 			}
 
 			if _, ok := services[i[1]].ContainerFieldType(services).(*ast.FuncType); ok {
