@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"go/printer"
 	"log"
 	"os"
@@ -29,12 +28,6 @@ func main() {
 	dingoYMLPath := "dingo.yml"
 	outputFile := "dingo.go"
 
-	defer func() {
-		if recoverErr := recover(); recoverErr != nil {
-			fmt.Printf("Error => %v\n", checkError(recoverErr))
-		}
-	}()
-
 	file, err := ParseYAMLFile(dingoYMLPath, outputFile)
 	if err != nil {
 		log.Fatalln(err)
@@ -49,16 +42,4 @@ func main() {
 	if err != nil {
 		log.Fatalln("writer:", err)
 	}
-}
-
-func checkError(i interface{}) error {
-	if i != nil {
-		if err, isError := i.(error); isError {
-			return  err
-		}
-
-		return fmt.Errorf("The programme has been just crushed with %v", i)
-	}
-
-	return nil
 }

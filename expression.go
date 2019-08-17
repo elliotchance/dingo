@@ -52,7 +52,7 @@ func (e Expression) performSubstitutions(file *File, services Services, fromArgs
 			}
 
 			if _, existsService := services[i[1]]; !existsService {
-				panic(fmt.Errorf("Cannot cite to %s service, please ensure you have this one accessible", i[1]))
+				panic(fmt.Sprintf("service does not exist: %s", i[1]))
 			}
 
 			if _, ok := services[i[1]].ContainerFieldType(services).(*ast.FuncType); ok {
