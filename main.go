@@ -28,7 +28,12 @@ func main() {
 	dingoYMLPath := "dingo.yml"
 	outputFile := "dingo.go"
 
-	file, err := ParseYAMLFile(dingoYMLPath, outputFile)
+	file, err := ParseYAMLFile(dingoYMLPath)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	packageName := file.getPackageName(dingoYMLPath)
+	file, err = GenerateContainer(file, packageName, outputFile)
 	if err != nil {
 		log.Fatalln(err)
 	}
