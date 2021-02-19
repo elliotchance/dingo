@@ -1,3 +1,4 @@
+package: dingotest
 services:
   SendEmail:
     type: '*SendEmail'
