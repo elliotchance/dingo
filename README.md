@@ -4,6 +4,7 @@ Easy, fast and type-safe dependency injection for Go.
 
   * [Installation](#installation)
   * [Building the Container](#building-the-container)
+  * [Configuring Package](#configuring-package)
   * [Configuring Services](#configuring-services)
     + [arguments](#arguments)
     + [error](#error)
@@ -54,6 +55,10 @@ services:
 
 It will generate a file called `dingo.go`. This must be committed with your
 code.
+## Configuring Package
+The root level `package` key describes the package name.
+
+Default is the directory name is not enough because it may contain a command (package main). Find the first non-test file to get the real package name.
 
 ## Configuring Services
 
