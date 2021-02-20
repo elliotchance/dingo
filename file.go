@@ -13,6 +13,7 @@ import (
 )
 
 type File struct {
+	Package  string
 	Services Services
 	fset     *token.FileSet
 	file     *ast.File

@@ -32,7 +32,12 @@ func main() {
 	if err != nil {
 		log.Fatalln(err)
 	}
-	packageName := file.getPackageName(dingoYMLPath)
+
+	packageName := file.Package
+	if packageName == "" {
+		packageName = file.getPackageName(dingoYMLPath)
+	}
+
 	file, err = GenerateContainer(file, packageName, outputFile)
 	if err != nil {
 		log.Fatalln(err)
