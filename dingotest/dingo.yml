@@ -90,3 +90,11 @@ services:
     type: '*HTTPSignerClient'
     properties:
       CreateSigner: '@{Signer}'
+
+  CustomerWelcomePrototype:
+    type: '*CustomerWelcome'
+    returns: NewCustomerWelcome(@{SendEmail})
+    arguments:
+      appid: 'string'
+    scope: 'prototype'
+

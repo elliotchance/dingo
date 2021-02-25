@@ -182,6 +182,9 @@ func (service *Service) astFunctionBody(file *File, services Services, name, ser
 	if name != "" && service.Scope == ScopePrototype {
 		var arguments []string
 		for _, dep := range service.Returns.Dependencies() {
+			if dep[len(dep)-1:]!=")" {
+				dep = dep+"()"
+			}
 			arguments = append(arguments, fmt.Sprintf("container.Get%s", dep))
 		}
 		arguments = append(arguments, service.Arguments.Names()...)
