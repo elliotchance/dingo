@@ -60,7 +60,9 @@ func (ty Type) LocalPackageName() string {
 
 	pkgNameParts := strings.Split(ty.UnversionedPackageName(), "/")
 	lastPart := pkgNameParts[len(pkgNameParts)-1]
-
+	if lastPart == "" {
+		lastPart = ty.PackageName()
+	}
 	return strings.Replace(lastPart, "-", "_", -1)
 }
 
