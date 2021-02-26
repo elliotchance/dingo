@@ -90,3 +90,18 @@ services:
     type: '*HTTPSignerClient'
     properties:
       CreateSigner: '@{Signer}'
+
+  CustomerWelcomePrototype:
+    type: '*CustomerWelcome'
+    returns: NewCustomerWelcome(@{SendEmail})
+    arguments:
+      appid: 'string'
+    scope: 'prototype'
+  CustomerWelcomePrototype2:
+    type: '*CustomerWelcome'
+    returns: NewCustomerWelcome(@{SendEmail})
+    arguments:
+      canaryConfig: '*v1.ObjectMetaAccessor'
+    scope: 'prototype'
+    import:
+      - 'k8s.io/apimachinery/pkg/apis/meta/v1'
