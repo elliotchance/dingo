@@ -127,10 +127,10 @@ func (service *Service) astArguments() *ast.FieldList {
 		List: []*ast.Field{},
 	}
 
-	for arg, ty := range service.Arguments {
+	for _, arg := range service.Arguments.Names() {
 		funcParams.List = append(funcParams.List, &ast.Field{
 			Type: &ast.Ident{
-				Name: string(arg + " " + ty.String()),
+				Name: string(arg + " " + service.Arguments[arg].String()),
 			},
 		})
 	}
