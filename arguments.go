@@ -21,7 +21,7 @@ func (args Arguments) Names() (names []string) {
 func (args Arguments) GoArguments() (ss []string) {
 	for _, argName := range args.Names() {
 		ss = append(ss, fmt.Sprintf("%s %s", argName,
-			args[argName].LocalEntityType()))
+			args[argName].LocalEntityType(nil)))
 	}
 
 	return

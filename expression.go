@@ -55,12 +55,38 @@ func (e Expression) performSubstitutions(file *File, services Services, fromArgs
 				panic(fmt.Sprintf("service does not exist: %s", i[1]))
 			}
 
-			if _, ok := services[i[1]].ContainerFieldType(services).(*ast.FuncType); ok {
+			if _, ok := services[i[1]].ContainerFieldType(services, nil).(*ast.FuncType); ok {
 				return fmt.Sprintf("container.%s", i[1])
 			}
 
 			return fmt.Sprintf("container.Get%s()", i[1])
 		})
+
+	// Note: Package prefix replacement is now done with context in astFunctionBody
+	// to avoid replacing the wrong package when there are conflicts
+
+	return stmt
+}
+
+// replacePackagePrefixesWithContext replaces package prefixes with awareness of the service's context
+func (e Expression) replacePackagePrefixesWithContext(stmt string, serviceType Type, importMap ImportMap) string {
+	if serviceType.PackageName() == "" {
+		return stmt
+	}
+
+	servicePkgPath := serviceType.PackageName()
+	parts := strings.Split(servicePkgPath, "/")
+	if len(parts) == 0 {
+		return stmt
+	}
+
+	defaultShortName := parts[len(parts)-1]
+	defaultShortName = strings.ReplaceAll(defaultShortName, "-", "_")
+
+	if resolvedName, ok := importMap[servicePkgPath]; ok && resolvedName != defaultShortName {
+		pattern := regexp.MustCompile(`\b` + regexp.QuoteMeta(defaultShortName) + `\.`)
+		stmt = pattern.ReplaceAllString(stmt, resolvedName+".")
+	}
 
 	return stmt
 }

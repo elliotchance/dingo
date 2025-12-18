@@ -53,15 +53,26 @@ func (ty Type) UnversionedPackageName() string {
 	return strings.Join(packageName, "/")
 }
 
-func (ty Type) LocalPackageName() string {
+func (ty Type) LocalPackageName(importMap ImportMap) string {
 	if ty.IsFunction() {
 		return ""
+	}
+
+	packageName := ty.PackageName()
+	if packageName == "" {
+		return ""
+	}
+
+	if importMap != nil {
+		if resolvedName, ok := importMap[packageName]; ok {
+			return resolvedName
+		}
 	}
 
 	pkgNameParts := strings.Split(ty.UnversionedPackageName(), "/")
 	lastPart := pkgNameParts[len(pkgNameParts)-1]
 	if lastPart == "" {
-		lastPart = ty.PackageName()
+		lastPart = packageName
 	}
 	return strings.Replace(lastPart, "-", "_", -1)
 }
@@ -76,22 +87,22 @@ func (ty Type) EntityName() string {
 	return strings.TrimLeft(parts[len(parts)-1], "*")
 }
 
-func (ty Type) LocalEntityName() string {
+func (ty Type) LocalEntityName(importMap ImportMap) string {
 	if ty.IsFunction() {
 		return ty.String()
 	}
 
-	name := ty.LocalPackageName() + "." + ty.EntityName()
+	name := ty.LocalPackageName(importMap) + "." + ty.EntityName()
 
 	return strings.TrimLeft(name, ".")
 }
 
-func (ty Type) LocalEntityType() string {
+func (ty Type) LocalEntityType(importMap ImportMap) string {
 	if ty.IsFunction() {
 		return ty.String()
 	}
 
-	name := ty.LocalEntityName()
+	name := ty.LocalEntityName(importMap)
 	if ty.IsPointer() {
 		name = "*" + name
 	}
@@ -99,12 +110,12 @@ func (ty Type) LocalEntityType() string {
 	return name
 }
 
-func (ty Type) CreateLocalEntityType() string {
+func (ty Type) CreateLocalEntityType(importMap ImportMap) string {
 	if ty.IsFunction() {
 		return ty.String()
 	}
 
-	name := ty.LocalEntityName()
+	name := ty.LocalEntityName(importMap)
 	if ty.IsPointer() {
 		name = "&" + name
 	}
@@ -112,12 +123,12 @@ func (ty Type) CreateLocalEntityType() string {
 	return name
 }
 
-func (ty Type) LocalEntityPointerType() string {
+func (ty Type) LocalEntityPointerType(importMap ImportMap) string {
 	if ty.IsFunction() {
 		return ty.String()
 	}
 
-	name := ty.LocalEntityName()
+	name := ty.LocalEntityName(importMap)
 	if !strings.HasPrefix(name, "*") {
 		name = "*" + name
 	}

@@ -33,7 +33,7 @@ func (services Services) ServicesWithScope(scope string) Services {
 }
 
 // astContainer creates the Container struct.
-func (services Services) astContainerStruct() *ast.GenDecl {
+func (services Services) astContainerStruct(importMap ImportMap) *ast.GenDecl {
 	var containerFields []*ast.Field
 	for _, serviceName := range services.ServiceNames() {
 		service := services[serviceName]
@@ -42,7 +42,7 @@ func (services Services) astContainerStruct() *ast.GenDecl {
 			Names: []*ast.Ident{
 				{Name: serviceName},
 			},
-			Type: service.ContainerFieldType(services),
+			Type: service.ContainerFieldType(services, importMap),
 		})
 	}
 

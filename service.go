@@ -25,30 +25,30 @@ type Service struct {
 	Type       Type
 }
 
-func (service *Service) ContainerFieldType(services Services) ast.Expr {
+func (service *Service) ContainerFieldType(services Services, importMap ImportMap) ast.Expr {
 	scope := service.Scope
 	if scope == ScopeNotSet {
 		scope = ScopeContainer
 	}
 
 	if scope == ScopeContainer && len(service.Arguments) == 0 {
-		return newIdent(service.InterfaceOrLocalEntityPointerType())
+		return newIdent(service.InterfaceOrLocalEntityPointerType(importMap))
 	}
 
-	return service.astFunctionPrototype(services)
+	return service.astFunctionPrototype(services, importMap)
 }
 
-func (service *Service) InterfaceOrLocalEntityType(services Services, recurse bool) string {
-	localEntityType := service.Type.LocalEntityType()
+func (service *Service) InterfaceOrLocalEntityType(services Services, recurse bool, importMap ImportMap) string {
+	localEntityType := service.Type.LocalEntityType(importMap)
 	if service.Interface != "" {
-		localEntityType = service.Interface.LocalEntityType()
+		localEntityType = service.Interface.LocalEntityType(importMap)
 	}
 
 	if len(service.Arguments) > 0 && recurse {
 		var args []string
 
 		for _, dep := range service.Returns.Dependencies() {
-			ty := services[dep].InterfaceOrLocalEntityType(services, false)
+			ty := services[dep].InterfaceOrLocalEntityType(services, false, importMap)
 			args = append(args, fmt.Sprintf("%s %s", dep, ty))
 		}
 
@@ -61,12 +61,12 @@ func (service *Service) InterfaceOrLocalEntityType(services Services, recurse bo
 	return localEntityType
 }
 
-func (service *Service) InterfaceOrLocalEntityPointerType() string {
+func (service *Service) InterfaceOrLocalEntityPointerType(importMap ImportMap) string {
 	if service.Interface != "" {
-		return service.Interface.LocalEntityType()
+		return service.Interface.LocalEntityType(importMap)
 	}
 
-	return service.Type.LocalEntityPointerType()
+	return service.Type.LocalEntityPointerType(importMap)
 }
 
 func (service *Service) Imports() map[string]string {
@@ -77,15 +77,16 @@ func (service *Service) Imports() map[string]string {
 	}
 
 	if service.Type.PackageName() != "" {
-		imports[service.Type.PackageName()] = service.Type.LocalPackageName()
+		imports[service.Type.PackageName()] = service.Type.LocalPackageName(nil)
 	}
 
 	if service.Interface.PackageName() != "" {
-		imports[service.Interface.PackageName()] = service.Interface.LocalPackageName()
+		imports[service.Interface.PackageName()] = service.Interface.LocalPackageName(nil)
 	}
 
 	return imports
 }
+
 
 func (service *Service) SortedProperties() (sortedProperties []*Property) {
 	var propertyNames []string
@@ -138,22 +139,22 @@ func (service *Service) astArguments() *ast.FieldList {
 	return funcParams
 }
 
-func (service *Service) astDependencyArguments(services Services) *ast.FieldList {
+func (service *Service) astDependencyArguments(services Services, importMap ImportMap) *ast.FieldList {
 	funcParams := &ast.FieldList{
 		List: []*ast.Field{},
 	}
 
 	for _, dep := range service.Returns.DependencyNames() {
 		funcParams.List = append(funcParams.List, &ast.Field{
-			Type: newIdent(dep + " " + services[dep].InterfaceOrLocalEntityType(services, false)),
+			Type: newIdent(dep + " " + services[dep].InterfaceOrLocalEntityType(services, false, importMap)),
 		})
 	}
 
 	return funcParams
 }
 
-func (service *Service) astAllArguments(services Services) *ast.FieldList {
-	deps := service.astDependencyArguments(services)
+func (service *Service) astAllArguments(services Services, importMap ImportMap) *ast.FieldList {
+	deps := service.astDependencyArguments(services, importMap)
 	args := service.astArguments()
 
 	return &ast.FieldList{
@@ -161,8 +162,8 @@ func (service *Service) astAllArguments(services Services) *ast.FieldList {
 	}
 }
 
-func (service *Service) astFunctionPrototype(services Services) *ast.FuncType {
-	ty := Type(service.InterfaceOrLocalEntityType(services, true))
+func (service *Service) astFunctionPrototype(services Services, importMap ImportMap) *ast.FuncType {
+	ty := Type(service.InterfaceOrLocalEntityType(services, true, importMap))
 	if ty.IsFunction() {
 		args, returns := ty.parseFunctionType()
 
@@ -173,7 +174,7 @@ func (service *Service) astFunctionPrototype(services Services) *ast.FuncType {
 	}
 
 	return &ast.FuncType{
-		Params:  service.astAllArguments(services),
+		Params:  service.astAllArguments(services, importMap),
 		Results: newFieldList(string(ty)),
 	}
 }
@@ -206,7 +207,7 @@ func (service *Service) astFunctionBody(file *File, services Services, name, ser
 				Lhs: []ast.Expr{newIdent(serviceTempVariable)},
 				Rhs: []ast.Expr{
 					&ast.CompositeLit{
-						Type: newIdent(service.Type.CreateLocalEntityType()),
+						Type: newIdent(service.Type.CreateLocalEntityType(file.importMap)),
 					},
 				},
 			},
@@ -218,12 +219,18 @@ func (service *Service) astFunctionBody(file *File, services Services, name, ser
 			lhs = append(lhs, newIdent("err"))
 		}
 
+		// Perform substitutions with context awareness for package prefixes
+		substitutedReturns := service.Returns.performSubstitutions(file, services, name == "")
+		if file.importMap != nil {
+			substitutedReturns = service.Returns.replacePackagePrefixesWithContext(substitutedReturns, service.Type, file.importMap)
+		}
+
 		instantiation = []ast.Stmt{
 			&ast.AssignStmt{
 				Tok: token.DEFINE,
 				Lhs: lhs,
 				Rhs: []ast.Expr{
-					newIdent(service.Returns.performSubstitutions(file, services, name == "")),
+					newIdent(substitutedReturns),
 				},
 			},
 		}
@@ -244,10 +251,15 @@ func (service *Service) astFunctionBody(file *File, services Services, name, ser
 
 	// Properties
 	for _, property := range service.SortedProperties() {
+		substitutedValue := property.Value.performSubstitutions(file, services, name == "")
+		if file.importMap != nil {
+			substitutedValue = property.Value.replacePackagePrefixesWithContext(substitutedValue, service.Type, file.importMap)
+		}
+
 		instantiation = append(instantiation, &ast.AssignStmt{
 			Tok: token.ASSIGN,
 			Lhs: []ast.Expr{&ast.Ident{Name: serviceTempVariable + "." + property.Name}},
-			Rhs: []ast.Expr{&ast.Ident{Name: property.Value.performSubstitutions(file, services, name == "")}},
+			Rhs: []ast.Expr{&ast.Ident{Name: substitutedValue}},
 		})
 	}
 

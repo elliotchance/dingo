@@ -263,7 +263,7 @@ func TestService_ContainerFieldType(t *testing.T) {
 		},
 	} {
 		t.Run(testName, func(t *testing.T) {
-			actual := test.services["A"].ContainerFieldType(test.services)
+			actual := test.services["A"].ContainerFieldType(test.services, nil)
 			assert.Equal(t, test.containerFieldType, actual)
 		})
 	}

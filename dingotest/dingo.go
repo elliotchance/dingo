@@ -10,29 +10,37 @@ import (
 )
 
 type Container struct {
-	AFunc            func(int, int) (bool, bool)
-	Clock            clockwork.Clock
-	CustomerWelcome  *CustomerWelcome
-	DependsOnTime    func(ParsedTime time.Time) time.Time
-	HTTPSignerClient *HTTPSignerClient
-	Now              func() time.Time
-	OtherPkg         *go_sub_pkg.Person
-	OtherPkg2        go_sub_pkg.Greeter
-	OtherPkg3        *go_sub_pkg.Person
-	ParsedTime       func(value string) time.Time
-	SendEmail        EmailSender
-	SendEmailError   *SendEmail
-	Signer           func(req *http.Request) *Signer
-	SomeEnv          *string
-	WhatsTheTime     *WhatsTheTime
-	WithEnv1         *SendEmail
-	WithEnv2         *SendEmail
+	AFunc				func (int, int) (bool, bool)
+	Clock				clockwork.Clock
+	CustomerWelcome			*CustomerWelcome
+	CustomerWelcomePrototype	func(SendEmail EmailSender, appid string) *CustomerWelcome
+	CustomerWelcomePrototype2	func(SendEmail EmailSender, config string) *CustomerWelcome
+	DependsOnTime			func(ParsedTime time.Time) time.Time
+	HTTPSignerClient		*HTTPSignerClient
+	Now				func() time.Time
+	OtherPkg			*go_sub_pkg.Person
+	OtherPkg2			go_sub_pkg.Greeter
+	OtherPkg3			*go_sub_pkg.Person
+	ParsedTime			func(value string) time.Time
+	SendEmail			EmailSender
+	SendEmailError			*SendEmail
+	Signer				func(req *http.Request) *Signer
+	SomeEnv				*string
+	WhatsTheTime			*WhatsTheTime
+	WithEnv1			*SendEmail
+	WithEnv2			*SendEmail
 }
 
 var DefaultContainer = NewContainer()
 
 func NewContainer() *Container {
-	return &Container{DependsOnTime: func(ParsedTime time.Time) time.Time {
+	return &Container{CustomerWelcomePrototype: func(SendEmail EmailSender, appid string) *CustomerWelcome {
+		service := NewCustomerWelcome(SendEmail)
+		return service
+	}, CustomerWelcomePrototype2: func(SendEmail EmailSender, config string) *CustomerWelcome {
+		service := NewCustomerWelcome(SendEmail)
+		return service
+	}, DependsOnTime: func(ParsedTime time.Time) time.Time {
 		service := ParsedTime
 		return service
 	}, Now: func() time.Time {
@@ -49,14 +57,14 @@ func NewContainer() *Container {
 		return service
 	}}
 }
-func (container *Container) GetAFunc() func(int, int) (bool, bool) {
+func (container *Container) GetAFunc() func (int, int) (bool, bool) {
 	if container.AFunc == nil {
-		service := func(a, b int) (c, d bool) {
-			c = (a + b) != 0
-			d = container.GetSomeEnv() != ""
+		service := func (a, b int) (c, d bool) {
+  c = (a + b) != 0
+  d = container.GetSomeEnv() != ""
 
-			return
-		}
+  return
+}
 
 		container.AFunc = service
 	}
@@ -75,6 +83,12 @@ func (container *Container) GetCustomerWelcome() *CustomerWelcome {
 		container.CustomerWelcome = service
 	}
 	return container.CustomerWelcome
+}
+func (container *Container) GetCustomerWelcomePrototype(appid string) *CustomerWelcome {
+	return container.CustomerWelcomePrototype(container.GetSendEmail(), appid)
+}
+func (container *Container) GetCustomerWelcomePrototype2(config string) *CustomerWelcome {
+	return container.CustomerWelcomePrototype2(container.GetSendEmail(), config)
 }
 func (container *Container) GetDependsOnTime() time.Time {
 	return container.DependsOnTime(container.GetParsedTime("13 Jan 06 15:04 MST"))

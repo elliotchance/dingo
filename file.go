@@ -13,10 +13,11 @@ import (
 )
 
 type File struct {
-	Package  string
-	Services Services
-	fset     *token.FileSet
-	file     *ast.File
+	Package   string
+	Services  Services
+	fset      *token.FileSet
+	file      *ast.File
+	importMap ImportMap
 }
 
 func ParseYAMLFile(filepath string) (*File, error) {
@@ -42,17 +43,30 @@ func GenerateContainer(all *File, packageName string, outputFile string) (*File,
 		return nil, err
 	}
 
+	// Collect and resolve all imports to handle duplicate package names
+	all.importMap = CollectAndResolveImports(all.Services)
+
 	all.file.Decls = append(all.file.Decls,
-		all.Services.astContainerStruct(),
+		all.Services.astContainerStruct(all.importMap),
 		all.Services.astDefaultContainer(),
 		all.astNewContainerFunc())
 
 	for _, serviceName := range all.Services.ServiceNames() {
 		definition := all.Services[serviceName]
 
-		// Add imports for type, interface and explicit imports.
-		for packageName, shortName := range definition.Imports() {
-			astutil.AddNamedImport(all.fset, all.file, shortName, packageName)
+		// Add imports using resolved names
+		for packagePath, _ := range definition.Imports() {
+			if packagePath == "" {
+				continue
+			}
+
+			// Get the resolved short name from the import map
+			shortName := ""
+			if resolvedName, ok := all.importMap[packagePath]; ok {
+				shortName = resolvedName
+			}
+
+			astutil.AddNamedImport(all.fset, all.file, shortName, packagePath)
 		}
 
 		all.file.Decls = append(all.file.Decls, &ast.FuncDecl{
@@ -69,7 +83,7 @@ func GenerateContainer(all *File, packageName string, outputFile string) (*File,
 			},
 			Type: &ast.FuncType{
 				Params:  definition.astArguments(),
-				Results: newFieldList(definition.InterfaceOrLocalEntityType(all.Services, false)),
+				Results: newFieldList(definition.InterfaceOrLocalEntityType(all.Services, false, all.importMap)),
 			},
 			Body: definition.astFunctionBody(all, all.Services, serviceName, serviceName),
 		})
@@ -122,7 +136,7 @@ func (file *File) astNewContainerFunc() *ast.FuncDecl {
 	for _, serviceName := range file.Services.ServicesWithScope(ScopePrototype).ServiceNames() {
 		service := file.Services[serviceName]
 		fields[serviceName] = &ast.FuncLit{
-			Type: service.astFunctionPrototype(file.Services),
+			Type: service.astFunctionPrototype(file.Services, file.importMap),
 			Body: service.astFunctionBody(file, file.Services, "", serviceName),
 		}
 	}

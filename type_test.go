@@ -164,7 +164,7 @@ func TestType_PackageName(t *testing.T) {
 func TestType_LocalPackageName(t *testing.T) {
 	for ty, test := range typeTests {
 		t.Run(string(ty), func(t *testing.T) {
-			assert.Equal(t, test.LocalPackageName, ty.LocalPackageName())
+			assert.Equal(t, test.LocalPackageName, ty.LocalPackageName(nil))
 		})
 	}
 }
@@ -180,7 +180,7 @@ func TestType_EntityName(t *testing.T) {
 func TestType_LocalEntityName(t *testing.T) {
 	for ty, test := range typeTests {
 		t.Run(string(ty), func(t *testing.T) {
-			assert.Equal(t, test.LocalEntityName, ty.LocalEntityName())
+			assert.Equal(t, test.LocalEntityName, ty.LocalEntityName(nil))
 		})
 	}
 }
@@ -188,7 +188,7 @@ func TestType_LocalEntityName(t *testing.T) {
 func TestType_LocalEntityType(t *testing.T) {
 	for ty, test := range typeTests {
 		t.Run(string(ty), func(t *testing.T) {
-			assert.Equal(t, test.LocalEntityType, ty.LocalEntityType())
+			assert.Equal(t, test.LocalEntityType, ty.LocalEntityType(nil))
 		})
 	}
 }
@@ -196,7 +196,7 @@ func TestType_LocalEntityType(t *testing.T) {
 func TestType_CreateLocalEntityType(t *testing.T) {
 	for ty, test := range typeTests {
 		t.Run(string(ty), func(t *testing.T) {
-			assert.Equal(t, test.CreateLocalEntityType, ty.CreateLocalEntityType())
+			assert.Equal(t, test.CreateLocalEntityType, ty.CreateLocalEntityType(nil))
 		})
 	}
 }
@@ -204,7 +204,7 @@ func TestType_CreateLocalEntityType(t *testing.T) {
 func TestType_LocalEntityPointerType(t *testing.T) {
 	for ty, test := range typeTests {
 		t.Run(string(ty), func(t *testing.T) {
-			assert.Equal(t, test.LocalEntityPointerType, ty.LocalEntityPointerType())
+			assert.Equal(t, test.LocalEntityPointerType, ty.LocalEntityPointerType(nil))
 		})
 	}
 }
